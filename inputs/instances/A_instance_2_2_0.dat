@@ -1,4 +1,4 @@
-Jobs = 10
+Jobs= 10
 Locations = 4
 Machines = 2
 Tardiness penalty = 0.2
