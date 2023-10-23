@@ -40,7 +40,10 @@ function build_parameters(; kwargs...)::Dict{Symbol, Any}
 end
 
 function load(filename::String; kwargs...)::PMSLPData
-    raw_data = readdlm(filename, comment_char='=')
+    path = "inputs/instances/$(filename).dat"
+    !isfile(path) && error("File does not exist: $path")
+
+    raw_data = readdlm(path, comment_char='=')
     jobs = parse_number(raw_data[1, 1:end])
     sites = parse_number(raw_data[2, 1:end])
     machines = parse_number(raw_data[3, 1:end])

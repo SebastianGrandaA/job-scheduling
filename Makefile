@@ -1,2 +1,2 @@
 up:
-	julia main.jl --instance=inputs/instances/A_instance_2_2_0.dat --model=PMSLPMIPModel1 --limit=10
+	julia main.jl --instance=A_instance_2_2_0 --model=MIP1 --limit=10

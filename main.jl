@@ -52,7 +52,6 @@ function main()
 
     # Load instance
     filename = args["instance"]
-    !isfile(filename) && error("Instance file does not exist: $filename")
     instance = load(filename, timeout=args["limit"])
 
     # Build time matrix
@@ -63,7 +62,7 @@ function main()
     solution = optimize(model, instance=instance, matrices=matrices)
 
     # Export solution
-    output_path = joinpath(dirname(@__FILE__), "outputs", "$(basename(filename)[1:end-4])_$(model)")
+    output_path = joinpath(dirname(@__FILE__), "outputs", "$(filename)_$(model)")
     export_solution!(output_path, instance, solution)
 end
 
