@@ -220,7 +220,6 @@ function travel_time(instance::PMSLPData, job_id::String, site_id::String)::Int6
     return travel_time(instance, get_idx(job_id), get_idx(site_id))
 end
 
-
 function travel_cost(instance::PMSLPData, job_idx::Int64, site_idx::Int64)::Float64
     return instance.estimator.costs[job_idx, site_idx]
 end

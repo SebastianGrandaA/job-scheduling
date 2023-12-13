@@ -7,6 +7,7 @@ using Gurobi #: Optimizer
 using ArgParse #: ArgParseSettings, @add_arg_table!, parse_args
 
 abstract type Method end
+struct BaseModel <: Method end
 struct PMSLPMIPModel1 <: Method end
 struct PMSLPMIPModel2 <: Method end
 struct PMSLPHeuristic <: Method end
@@ -19,6 +20,7 @@ const SITE_PREFIX = "SITE-"
 include("src/services/instances.jl")
 include("src/services/outputs.jl")
 
+include("src/methods/BaseModel.jl")
 include("src/methods/PMSLPMIPModel1.jl")
 include("src/methods/PMSLPMIPModel2.jl")
 include("src/methods/PMSLPHeuristic.jl")
@@ -36,7 +38,11 @@ function optimize(model_name::String, instance::PMSLPData, solver::SOLVER)::PMSL
     elseif occursin(uppercase(model_name), uppercase("PMSLPHeuristic"))
         method = eval(Symbol("Heuristic"))()
     else
-        @error "Invalid model name: $model_name"
+        try
+            method = eval(Symbol(model_name))()
+        catch e
+            @error "Invalid model name: $model_name. Not registered. Error: $e"
+        end
     end
 
     @info "Solving $(method) | Jobs: $(nb_jobs(instance)) | Sites: $(nb_jobs(instance))"

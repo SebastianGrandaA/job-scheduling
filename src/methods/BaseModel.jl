@@ -1,5 +1,5 @@
 function solve(
-    method::PMSLPMIPModel1,
+    method::BaseModel,
     instance::PMSLPData,
     solver::SOLVER,
 )::PMSLPSolution
@@ -10,7 +10,6 @@ function solve(
     periods = instance.horizon
     λ = instance.parameters[:λ]
     β = instance.parameters[:tardiness_penalty]
-    Ω = [(i, j) for i in jobs, j in jobs if i != j]
 
     @variable(model, is_allocated[sites], Bin) # `y` : machine installation in each site k
     @variable(model, starts_at[periods, jobs, sites], Bin) # `x` : job j starts at time t in site k
@@ -32,7 +31,7 @@ function solve(
     @constraint(
         model,
         maximum_installations,
-        sum(is_allocated[s] for s in sites) == nb_machines(instance)
+        sum(is_allocated[s] for s in sites) <= nb_machines(instance)
     )
 
     # Job execution constraint
@@ -41,34 +40,25 @@ function solve(
         exclusive_assignment[j in jobs],
         sum(
             starts_at[p, j, s]
-            for s in sites, p in periods # available_window(instance, j, s)
+            for s in sites, p in available_window(instance, j, s)
         ) == 1
     )
 
     # Machine activation only if installed constraint
+    # Note: stronger formulation than (4) in the paper
     @constraint(
         model,
         machine_activation[p in periods, j in jobs, s in sites],
         starts_at[p, j, s] <= is_allocated[s]
     )
 
-    # Start after arrival constraint (replace by job execution constraint)
-    @constraint(
-        model,
-        start_after_arrival[j in jobs, s in sites],
-        sum(
-            starts_at[p, j, s]
-            for p in 1:(travel_time(instance, j, s) - 1) # TODO Validar + 1 o -1 (como en doc) y refactor si esta bien
-        ) == 0
-    )
-
     # Sequence: non-overlapping jobs and no preemption constraint
     @constraint(
         model,
-        sequence[(i, j) in Ω, s in sites, p in periods],
-        starts_at[p, i, s] + sum(
-            starts_at[t, j, s]
-            for t in p:(min(p + processing_time(instance, i) - 1, last(instance.horizon)))
+        sequence[s in sites, t in periods],
+        sum(
+            starts_at[p, j, s]
+            for j in jobs, p in start_window(instance, j, t)
         ) <= is_allocated[s]
     )
 
@@ -77,26 +67,28 @@ function solve(
         model,
         task_completion[j in jobs],
         finish_time[j] >= sum(
-            starts_at[p, j, s] * (p + processing_time(instance, j) + travel_time(instance, j, s))
+            p * starts_at[p, j, s]
             for p in periods, s in sites
-        )
+        ) + processing_time(instance, j) - 1
     )
 
     # Tardiness calculation constraint
     @constraint(
         model,
         tardiness_calculation[j in jobs],
-        tardiness[j] >= finish_time[j] - due_date(instance, j)
+        tardiness[j] >= finish_time[j] + sum(
+            starts_at[p, j, s] * travel_time(instance, j, s)
+            for p in periods, s in sites
+        ) - due_date(instance, j)
     )
 
     execution_time = @elapsed solve!(model)
 
     return PMSLPSolution(method, instance, model, execution_time)
-
 end
 
 function PMSLPSolution(
-    ::PMSLPMIPModel1,
+    ::BaseModel,
     instance::PMSLPData,
     model::Model,
     execution_time::Float64,
@@ -133,4 +125,3 @@ function PMSLPSolution(
 
     return solution
 end
-
