@@ -8,16 +8,14 @@ function solve(
     T = last(instance.horizon)
     sites = 1:nb_sites(instance)
     jobs = 1:nb_jobs(instance)
-    dummy_node = nb_jobs(instance) + 1
-    nodes = 1:dummy_node
     λ = instance.parameters[:λ]
     β = instance.parameters[:tardiness_penalty]
     Ω = [(i, j) for i in jobs, j in jobs if i != j]
 
     @variable(model, is_allocated[sites], Bin) # y_k : machine installation in each site k
     @variable(model, is_assigned[jobs, sites], Bin) # x_jk : job j is assigned to site k
-    @variable(model, is_sequence[nodes, jobs, sites], Bin) # u_ijk : job i is sequenced (inmediately) before job j in site k
-    @variable(model, starts_at[nodes] >= 0, Int) # S_j : job j start time
+    @variable(model, is_sequence[jobs, jobs, sites], Bin) # u_ijk : job i is sequenced (inmediately) before job j in site k
+    @variable(model, starts_at[jobs] >= 0, Int) # S_j : job j start time
     @variable(model, finish_time[jobs] >= 0, Int) # C_j : job j finish time
     @variable(model, tardiness[jobs] >= 0, Int) # T_j : job j tardiness
 
@@ -115,7 +113,7 @@ function PMSLPSolution(
         delayed_time = value(model[:tardiness][j])
 
         for (s, site) in enumerate(instance.sites)
-            for n in 1:nb_jobs(instance) + 1
+            for n in 1:nb_jobs(instance)
                 is_sequence = value(model[:is_sequence][n, j, s]) >= 0.5
 
                 if is_sequence
