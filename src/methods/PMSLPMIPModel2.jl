@@ -66,7 +66,7 @@ function solve(
     @constraint(
         model,
         [(i, j) in Ω, s in sites],
-        starts_at[i] - starts_at[j] >= latest_start(instance, j, T) * (is_sequence[i, j, s] - 1) + processing_time(instance, j)
+        starts_at[i] - starts_at[j] >= T * (is_sequence[i, j, s] - 1) + processing_time(instance, j)
     )
 
     @constraint(
@@ -110,23 +110,18 @@ function PMSLPSolution(
     assignments = Assignment[]
 
     for (j, job) in enumerate(instance.jobs)
-        delayed_time = value(model[:tardiness][j])
+        tardiness = round(Int64, value(model[:tardiness][j]))
+        starts_at = round(Int64, value(model[:starts_at][j]))
+        machine_usage = Window(job, starts_at)
 
         for (s, site) in enumerate(instance.sites)
-            for n in 1:nb_jobs(instance)
-                is_sequence = value(model[:is_sequence][n, j, s]) >= 0.5
+            is_match = value(model[:is_assigned][j, s]) >= 0.5
 
-                if is_sequence
-                    raw_starts_at = value(model[:starts_at][n])
-                    starts_at = round(Int64, raw_starts_at)
-                    @assert starts_at == raw_starts_at
+            if is_match
+                assignment = Assignment(job.id, site.id, machine_usage, tardiness)
+                push!(assignments, assignment)
 
-                    machine_usage = Window(job, starts_at)
-                    assignment = Assignment(job.id, site.id, machine_usage, delayed_time)
-                    push!(assignments, assignment)
-
-                    break
-                end
+                break
             end
         end
     end

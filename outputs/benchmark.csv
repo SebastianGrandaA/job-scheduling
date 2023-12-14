@@ -1,4 +1,12 @@
 instance_name,model_name,solution_value,execution_time
-A_instance_2_2_0,BaseModel(),243.294,35.1509
-A_instance_2_2_0,BaseModel(),243.294,31.6772
-A_instance_2_2_0,BaseModel(),243.294,32.9077
+A_instance_2_2_0,BaseModel(),243.294,15.6807
+A_instance_2_2_0,BaseModel(),243.294,11.6303
+A_instance_2_2_0,PMSLPMIPModel2(),243.534,0.1577
+A_instance_2_2_2,BaseModel(),254.7314,19.8859
+A_instance_2_2_2,PMSLPMIPModel2(),255.3314,1.0778
+A_instance_2_2_4,BaseModel(),480.9079,416.241
+A_instance_2_2_4,PMSLPMIPModel2(),482.1079,3600.2506
+A_instance_2_2_6,BaseModel(),430.5803,92.8209
+A_instance_2_2_6,PMSLPMIPModel2(),431.1203,446.5286
+A_instance_2_2_10,BaseModel(),595.9358,862.8569
+A_instance_2_2_10,PMSLPMIPModel2(),596.2658,3600.2956

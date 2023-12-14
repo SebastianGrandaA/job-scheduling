@@ -52,9 +52,10 @@ end
 
 function execute!(args::Dict)::Nothing
     # Set solver
+    verbose = get(args, "verbose", false) == true ? 1 : 0
     solver = optimizer_with_attributes(
         Gurobi.Optimizer,
-        "OutputFlag" => 1,
+        "OutputFlag" => verbose,
         "TimeLimit" => args["limit"],
     )
 
@@ -100,6 +101,7 @@ function main()::Nothing
             help="Time limit"
             arg_type = Int
             default=3600
+        # verbose = default en true?
     end
 
     execute!(parse_args(parser))

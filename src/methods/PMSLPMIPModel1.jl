@@ -103,17 +103,17 @@ function PMSLPSolution(
 )
     open_sites = Site[
         site
-        for (site_idx, site) in enumerate(instance.sites)
-        if value(model[:is_allocated][site_idx]) >= 0.5
+        for (s, site) in enumerate(instance.sites)
+        if value(model[:is_allocated][s]) >= 0.5
     ]
     assignments = Assignment[]
 
-    for (job_idx, job) in enumerate(instance.jobs)
-        delayed_time = value(model[:tardiness][job_idx])
+    for (j, job) in enumerate(instance.jobs)
+        delayed_time = value(model[:tardiness][j])
 
-        for (site_idx, site) in enumerate(instance.sites)
+        for (s, site) in enumerate(instance.sites)
             for period in instance.horizon
-                starts_at = value(model[:starts_at][period, job_idx, site_idx]) >= 0.5
+                starts_at = value(model[:starts_at][period, j, s]) >= 0.5
                 
                 if starts_at
                     machine_usage = Window(job, period)

@@ -1,0 +1,8 @@
+instance_name,model_name,solution_value,execution_time
+A_instance_2_2_0,BaseModel(),243.294,35.1509
+A_instance_2_2_0,BaseModel(),243.294,31.6772
+A_instance_2_2_0,BaseModel(),243.294,32.9077
+A_instance_2_2_0,BaseModel(),243.294,12.4106
+A_instance_2_2_0,BaseModel(),243.294,11.6902
+A_instance_2_2_0,BaseModel(),243.294,11.8883
+A_instance_2_2_0,PMSLPMIPModel2(),243.534,0.1537

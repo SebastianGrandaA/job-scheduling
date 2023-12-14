@@ -260,7 +260,7 @@ end
 
 function latest_start(instance::PMSLPData, job_idx::Int64)::Int64
     # Latest start for a job in a given site
-    return return maximum(
+    return maximum(
         earliest_start(instance, job_idx, site_idx)
         for site_idx in 1:nb_sites(instance)
     )

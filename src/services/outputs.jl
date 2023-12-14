@@ -29,8 +29,8 @@ struct Window
     finish::Int64
 end
 
-function Window(job::Job, period::Int64)::Window
-    return Window(period, period + processing_time(job) - 1)
+function Window(job::Job, start_at::Int64)::Window
+    return Window(start_at, start_at + processing_time(job) - 1)
 end
 
 struct Assignment
@@ -82,6 +82,7 @@ function str(instance::PMSLPData, assignment::Assignment)::String
 end
 
 function Base.show(instance::PMSLPData, solution::PMSLPSolution)
+    # TODO show as dataframe
     @info "Opened sites: $(nb_sites(solution)) / $(nb_sites(instance))"
     @info "Assignments: $(nb_assignments(solution)) / $(nb_jobs(instance))"
     @info "Objective value: $(objective_value(solution)) | Execution time: $(execution_time(solution))"
@@ -96,6 +97,7 @@ end
 
 function validate(solution::PMSLPSolution)::Nothing
     has_overlapping(solution) && @error("Solution has overlapping assignments")
+    # TODO: add validation that all jobs are assigned
     objective_value(solution) <= 0 && @error("Solution has negative objective value")
 
     @info "Solution is valid : no overlapping assignments and positive objective value"
@@ -243,7 +245,7 @@ function add_model!(filename::String, instance::PMSLPData, solution::PMSLPSoluti
     columns = ["instance_name", "model_name", "solution_value", "execution_time"]
     history = get_file(filename, columns)
     execution = [name(instance), method(solution), objective_value(solution), execution_time(solution)]
-    push!(history, execution)
+    push!(history, execution, promote=true)
     @info "Solution recorded in benchmark file"
 
     CSV.write(filename, history)
