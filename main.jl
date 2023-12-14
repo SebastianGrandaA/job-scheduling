@@ -50,7 +50,35 @@ function optimize(model_name::String, instance::PMSLPData, solver::SOLVER)::PMSL
     return solve(method, instance, solver)
 end
 
-function main()
+function execute!(args::Dict)::Nothing
+    # Set solver
+    solver = optimizer_with_attributes(
+        Gurobi.Optimizer,
+        "OutputFlag" => 1,
+        "TimeLimit" => args["limit"],
+    )
+
+    # Load instance
+    filename = args["instance"]
+    instance = PMSLPData(filename)
+
+    # Optimize
+    model_name = args["model"]
+    solution = optimize(model_name, instance, solver)
+    show(instance, solution)
+
+    # Export solution
+    output_path = joinpath(dirname(@__FILE__), "outputs")
+    export_solution(joinpath(output_path, "$(filename)_$(model_name)"), instance, solution)
+
+    # If args has the key : benchmark and its value is true, then record the model metrics in a csv file
+    run_benchmark = get(args, "benchmark", false)
+    run_benchmark && add_model!(joinpath(output_path, "benchmark.csv"), instance, solution)
+
+    return nothing
+end
+
+function main()::Nothing
     parser = ArgParseSettings()
     @add_arg_table! parser begin
         "--instance"
@@ -73,27 +101,8 @@ function main()
             arg_type = Int
             default=3600
     end
-    args = parse_args(parser)
 
-    # Set solver
-    solver = optimizer_with_attributes(
-        Gurobi.Optimizer,
-        "OutputFlag" => 1,
-        "TimeLimit" => args["limit"],
-    )
-
-    # Load instance
-    filename = args["instance"]
-    instance = PMSLPData(filename)
-
-    # Optimize
-    model_name = args["model"]
-    solution = optimize(model_name, instance, solver)
-    show(instance, solution)
-
-    # Export solution
-    output_path = joinpath(dirname(@__FILE__), "outputs", "$(filename)_$(model_name)")
-    export_solution(output_path, instance, solution)
+    execute!(parse_args(parser))
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__

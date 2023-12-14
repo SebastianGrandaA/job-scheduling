@@ -96,7 +96,7 @@ function solve(
 end
 
 function PMSLPSolution(
-    ::PMSLPMIPModel1,
+    method::PMSLPMIPModel1,
     instance::PMSLPData,
     model::Model,
     execution_time::Float64,
@@ -127,7 +127,7 @@ function PMSLPSolution(
     end
 
     metrics = Metrics(objective_value(model), execution_time)
-    solution = PMSLPSolution(open_sites, assignments, metrics)
+    solution = PMSLPSolution(method, open_sites, assignments, metrics)
     format!(solution)
     validate(solution)
 

@@ -5,6 +5,7 @@ function solve(
 )::PMSLPSolution
     model = Model(solver)
 
+    T = last(instance.horizon)
     sites = 1:nb_sites(instance)
     jobs = 1:nb_jobs(instance)
     dummy_node = nb_jobs(instance) + 1
@@ -35,13 +36,7 @@ function solve(
     @constraint(
         model,
         maximum_installations,
-        sum(is_allocated[s] for s in sites) == nb_machines(instance)
-    )
-
-    @constraint(
-        model,
-        exclusive_assignment[j in jobs],
-        sum(is_assigned[j, s] for s in sites) == 1
+        sum(is_allocated[s] for s in sites) <= nb_machines(instance)
     )
 
     # Machine activation only if installed constraint
@@ -51,72 +46,47 @@ function solve(
         is_assigned[j, s] <= is_allocated[s]
     )
 
+    @constraint(
+        model,
+        exclusive_assignment[j in jobs],
+        sum(is_assigned[j, s] for s in sites) == 1
+    )
+
     # Job sequence constraint
     @constraint(
         model,
         sequence[(i, j) in Ω, s in sites],
-        is_sequence[i, j, s] <= 1/2 * (is_assigned[i, s] + is_assigned[j, s])
+        is_assigned[i, s] >= is_sequence[i, j, s] + is_sequence[j, i, s]
     )
 
-    # Dummy job sequence constraint
     @constraint(
         model,
-        dummy_job_sequence[j in jobs, s in sites],
-        is_sequence[dummy_node, j, s] <= is_assigned[j, s]
+        [(i, j) in Ω, s in sites],
+        is_sequence[i, j, s] + is_sequence[j, i, s] >= is_assigned[i, s] + is_assigned[j, s] - 1
     )
 
-    # All nodes are sequenced constraint
     @constraint(
         model,
-        sequence_nodes[j in jobs],
-        sum(is_sequence[n, j, s] for n in nodes, s in sites) == 1
+        [(i, j) in Ω, s in sites],
+        starts_at[i] - starts_at[j] >= latest_start(instance, j, T) * (is_sequence[i, j, s] - 1) + processing_time(instance, j)
     )
 
-    # Maximum sequence constraint
     @constraint(
         model,
-        maximum_sequence[j in jobs],
-        sum(is_sequence[j, i, s] for i in j, s in sites) <= 1
+        [i in jobs, s in sites],
+        starts_at[i] >= earliest_start(instance, i, s) + latest_start(instance, i) * (is_assigned[i, s] - 1)
     )
 
     # Consecutive sequence (no dead time) constraint
     @constraint(
         model,
-        consecutive_sequence[j in jobs],
-        starts_at[j] == sum(
-            is_sequence[i, j, s] * (starts_at[i] + processing_time(instance, i))
-            for i in jobs, s in sites
-        )
-    ) # Assumption : Start just after the previous job (no dead time) -- TODO CHECK !
-
-    # Start time definition constraint
-    @constraint(
-        model,
-        start_time_definition[j in jobs],
-        starts_at[j] >= sum(
-            is_assigned[j, s] * travel_time(instance, j, s)
-            for s in sites
-        )
-    )
-
-    # Dummy job start time constraint
-    @constraint(
-        model,
-        dummy_start_time,
-        starts_at[dummy_node] == 0
-    )
-
-    # Finish time definition constraint
-    @constraint(
-        model,
         finish_time_definition[j in jobs],
         finish_time[j] == starts_at[j] + processing_time(instance, j) + sum(
-            is_assigned[j, s] * travel_time(instance, j, s)
+            is_assigned[j, s] * earliest_start(instance, j, s)
             for s in sites
         )
     )
 
-    # Tardiness definition constraint
     @constraint(
         model,
         tardiness_definition[j in jobs],
@@ -129,7 +99,7 @@ function solve(
 end
 
 function PMSLPSolution(
-    ::PMSLPMIPModel2,
+    method::PMSLPMIPModel2,
     instance::PMSLPData,
     model::Model,
     execution_time::Float64,
@@ -149,7 +119,11 @@ function PMSLPSolution(
                 is_sequence = value(model[:is_sequence][n, j, s]) >= 0.5
 
                 if is_sequence
-                    machine_usage = Window(job, value(model[:starts_at][n]))
+                    raw_starts_at = value(model[:starts_at][n])
+                    starts_at = round(Int64, raw_starts_at)
+                    @assert starts_at == raw_starts_at
+
+                    machine_usage = Window(job, starts_at)
                     assignment = Assignment(job.id, site.id, machine_usage, delayed_time)
                     push!(assignments, assignment)
 
@@ -158,9 +132,9 @@ function PMSLPSolution(
             end
         end
     end
-    
+
     metrics = Metrics(objective_value(model), execution_time)
-    solution = PMSLPSolution(open_sites, assignments, metrics)
+    solution = PMSLPSolution(method, open_sites, assignments, metrics)
     format!(solution)
     validate(solution)
 

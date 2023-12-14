@@ -1,5 +1,7 @@
 using DelimitedFiles: readdlm
 using Distances: euclidean
+using DataFrames
+using CSV
 
 struct Location
     latitude::Float64
@@ -25,6 +27,7 @@ struct Estimator
 end
 
 struct PMSLPData
+    name::String
     horizon::UnitRange{Int64}
     nb_machines::Int64
     jobs::Vector{Job}
@@ -32,6 +35,8 @@ struct PMSLPData
     estimator::Estimator
     parameters::Dict{Symbol, Any}
 end
+
+name(instance::PMSLPData)::String = instance.name
 
 get_idx(job::Job)::Int64 = parse(Int, replace(job.id, JOB_PREFIX => ""))
 get_idx(site::Site)::Int64 = parse(Int, replace(site.id, SITE_PREFIX => ""))
@@ -61,7 +66,7 @@ function PMSLPData(filename::String; kwargs...)
     estimator = build_matrices(jobs, sites, parameters)
     horizon = build_horizon(jobs, estimator)
 
-    return PMSLPData(horizon, nb_machines, jobs, sites, estimator, parameters)
+    return PMSLPData(filename, horizon, nb_machines, jobs, sites, estimator, parameters)
 end
 
 """
@@ -150,6 +155,7 @@ nb_jobs(instance::PMSLPData)::Int64 = length(instance.jobs)
 nb_machines(instance::PMSLPData)::Int64 = instance.nb_machines
 
 """
+"Release time" : earliest start for a job j in site s.
 Assupmtion: all tasks are transported at the beginning of the horizon (transportation resources are not limited).
 """
 function earliest_start(instance::PMSLPData, job::Union{Job, Int64}, site::Union{Site, Int64})::Int64
@@ -166,6 +172,10 @@ end
 
 function latest_start(job::Job, period::Int64)::Int64
     return max(1, period - processing_time(job) + 1)
+end
+
+function latest_start(instance::PMSLPData, job_idx::Int64, period::Int64)::Int64
+    return latest_start(instance.jobs[job_idx], period)
 end
 
 function latest_start(instance::PMSLPData, job_id::String, period::Int64)::Int64
@@ -235,3 +245,23 @@ fixed_cost(instance::PMSLPData, site_idx::Int64)::Int64 = fixed_cost(instance.si
 due_date(job::Job)::Int64 = job.due_date
 
 due_date(instance::PMSLPData, job_idx::Int64)::Int64 = due_date(instance.jobs[job_idx])
+
+function get_file(name::String, columns::Vector{String})::DataFrame
+    if isfile(name)
+        data = CSV.read(name, DataFrame)
+
+        if all(c -> c in names(data), columns)
+            return data
+        end
+    end
+
+    return DataFrame(Dict(c => [] for c in columns))
+end
+
+function latest_start(instance::PMSLPData, job_idx::Int64)::Int64
+    # Latest start for a job in a given site
+    return return maximum(
+        earliest_start(instance, job_idx, site_idx)
+        for site_idx in 1:nb_sites(instance)
+    )
+end

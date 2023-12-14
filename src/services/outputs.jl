@@ -48,17 +48,19 @@ function ID(assignment::Assignment)::String
 end
 
 struct PMSLPSolution
+    method::Method
     open_sites::Vector{Site}
     assignments::Vector{Assignment}
     metrics::Metrics
 end
 
+method(solution::PMSLPSolution)::String = String(Symbol(solution.method))
 nb_sites(solution::PMSLPSolution)::Int64 = length(solution.open_sites)
 nb_assignments(solution::PMSLPSolution)::Int64 = length(solution.assignments)
 
-JuMP.objective_value(solution::PMSLPSolution)::Real = solution.metrics.objective_value
+JuMP.objective_value(solution::PMSLPSolution)::Real = round(solution.metrics.objective_value, digits=4)
 
-execution_time(solution::PMSLPSolution)::Float64 = solution.metrics.execution_time
+execution_time(solution::PMSLPSolution)::Float64 = round(solution.metrics.execution_time, digits=4)
 
 start_time(assignment::Assignment)::Int64 = assignment.machine_usage.start
 
@@ -93,8 +95,8 @@ function Base.show(instance::PMSLPData, solution::PMSLPSolution)
 end
 
 function validate(solution::PMSLPSolution)::Nothing
-    has_overlapping(solution) && error("Solution has overlapping assignments")
-    objective_value(solution) <= 0 && error("Solution has negative objective value")
+    has_overlapping(solution) && @error("Solution has overlapping assignments")
+    objective_value(solution) <= 0 && @error("Solution has negative objective value")
 
     @info "Solution is valid : no overlapping assignments and positive objective value"
 
@@ -233,6 +235,18 @@ function export_solution(path::String, instance::PMSLPData, solution::PMSLPSolut
 
     plot_gantt!("$(path)_gantt.html", solution_data)
     write("$(path)_solution.csv", solution_data)
+
+    return nothing
+end
+
+function add_model!(filename::String, instance::PMSLPData, solution::PMSLPSolution)::Nothing
+    columns = ["instance_name", "model_name", "solution_value", "execution_time"]
+    history = get_file(filename, columns)
+    execution = [name(instance), method(solution), objective_value(solution), execution_time(solution)]
+    push!(history, execution)
+    @info "Solution recorded in benchmark file"
+
+    CSV.write(filename, history)
 
     return nothing
 end
