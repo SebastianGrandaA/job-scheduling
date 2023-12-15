@@ -9,3 +9,4 @@ deps/src/
 docs/build/
 docs/site/
 TODOs.jl
+outputs/-/*

@@ -19,6 +19,7 @@ const SITE_PREFIX = "SITE-"
 
 include("src/services/instances.jl")
 include("src/services/outputs.jl")
+include("src/services/benchmark.jl")
 
 include("src/methods/BaseModel.jl")
 include("src/methods/PMSLPMIPModel1.jl")
@@ -45,7 +46,7 @@ function optimize(model_name::String, instance::PMSLPData, solver::SOLVER)::PMSL
         end
     end
 
-    @info "Solving $(method) | Jobs: $(nb_jobs(instance)) | Sites: $(nb_jobs(instance))"
+    @info "Solving $(instance.name) with $(method) | Jobs: $(nb_jobs(instance)) | Sites: $(nb_jobs(instance))"
 
     return solve(method, instance, solver)
 end
@@ -60,8 +61,8 @@ function execute!(args::Dict)::Nothing
     )
 
     # Load instance
-    filename = args["instance"]
-    instance = PMSLPData(filename)
+    filename = get(args, "filename", nothing)
+    instance = isnothing(filename) ? args["instance"] : PMSLPData(filename)
 
     # Optimize
     model_name = args["model"]
@@ -82,7 +83,7 @@ end
 function main()::Nothing
     parser = ArgParseSettings()
     @add_arg_table! parser begin
-        "--instance"
+        "--filename"
             help="Instance file name"
             arg_type = String
             required=true

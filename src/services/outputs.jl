@@ -107,7 +107,13 @@ end
 
 function format!(solution::PMSLPSolution)::Nothing
     sort!(solution.open_sites, by=site -> site.id)
-    sort!(solution.assignments, by=assignment -> start_time(assignment))
+    format!(solution.assignments)
+
+    return nothing
+end
+
+function format!(assignments::Vector{Assignment})::Nothing
+    sort!(assignments, by=assignment -> start_time(assignment))
 
     return nothing
 end
@@ -120,11 +126,8 @@ function get_schedule(solution::PMSLPSolution, site_nb::Int64)::Vector{Assignmen
     return get_schedule(solution, "$(SITE_PREFIX)$(site_nb)")
 end
 
-function find_job_assignment(solution::PMSLPSolution, job_id::String)::Assignment
-    job = filter(assignment -> assignment.job_id == job_id, solution.assignments)
-    @assert length(job) == 1
-
-    return first(job)
+function get_assignments(assignments::Vector{Assignment}, site_id::String)::Vector{Assignment}
+    return filter(assignment -> assignment.site_id == site_id, assignments)
 end
 
 function has_intersection(window_1::Window, window_2::Window)::Bool
@@ -141,25 +144,30 @@ function has_intersection(first_assignment::Assignment, second_assignment::Assig
     )
 end
 
-function has_overlapping(solution::PMSLPSolution)::Bool
-    overlaps = []
+function has_overlapping(assignments::Vector{Assignment})::Bool
+    N = length(assignments)
 
-    for site in solution.open_sites
-        assignments = get_schedule(solution, site.id) # all jobs in a machine (site)
-        N = length(assignments)
+    for i in 1:N
+        for j in i+1:N
+            if has_intersection(assignments[i], assignments[j])
+                overlap = (ID(assignments[i]), ID(assignments[j]))
+                @warn "Overlapping assignments: $overlap"
 
-        for i in 1:N
-            for j in i+1:N
-                if has_intersection(assignments[i], assignments[j])
-                    overlap = (ID(assignments[i]), ID(assignments[j]))
-                    @warn "Overlapping assignments: $overlap"
-                    push!(overlaps, overlap)
-                end
+                return true
             end
         end
     end
 
-    return !isempty(overlaps)
+    return false
+end
+
+function has_overlapping(solution::PMSLPSolution)::Bool
+    for site in solution.open_sites
+        assignments = get_schedule(solution, site.id) # all jobs in a machine (site)
+        has_overlapping(assignments) && return true
+    end
+
+    return false
 end
 
 

@@ -34,7 +34,7 @@ function solve(
     @constraint(
         model,
         maximum_installations,
-        sum(is_allocated[s] for s in sites) <= nb_machines(instance)
+        sum(is_allocated[s] for s in sites) == nb_machines(instance)
     )
 
     # Machine activation only if installed constraint
@@ -72,7 +72,7 @@ function solve(
     @constraint(
         model,
         [i in jobs, s in sites],
-        starts_at[i] >= earliest_start(instance, i, s) + latest_start(instance, i) * (is_assigned[i, s] - 1)
+        starts_at[i] >= (earliest_start(instance, i, s) - 2) + latest_start(instance, i) * (is_assigned[i, s] - 1) # TODO validate...
     )
 
     # Consecutive sequence (no dead time) constraint

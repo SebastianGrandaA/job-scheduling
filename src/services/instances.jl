@@ -22,7 +22,7 @@ struct Site
 end
 
 struct Estimator
-    times::Matrix{Int64}
+    times::Matrix{Float64}
     costs::Matrix{Float64}
 end
 
@@ -103,38 +103,37 @@ end
 
 function build_parameters(; kwargs...)::Dict{Symbol, Any}
     λ = [
-        0.4, # fixed_cost
-        0.3, # travel_time
-        0.3, # tardiness
+        1, # fixed_cost weight
+        1, # travel_time weight
+        1, # tardiness weight
     ]
-    @assert sum(λ) == 1.0
 
     return Dict{Symbol, Any}(
         :λ => λ,
-        :velocity => 10.0, # km/h
-        :cost_per_km => 1.0, # euros/km
+        :velocity => 1.0, # km/h
+        :cost_per_km => 3.0, # euros/km
         kwargs...,
     )
 end
 
 # Distances
-function get_distance(source::Location, destination::Location)::Float64
-    return euclidean(
+function get_distance(source::Location, destination::Location)::Int64
+    return floor(Int64, euclidean(
         (source.latitude, source.longitude),
         (destination.latitude, destination.longitude),
-    )
+    ))
 end
 
 function build_matrices(jobs::Vector{Job}, sites::Vector{Site}, parameters::Dict{Symbol, Any})::Estimator
     velocity = parameters[:velocity]
     cost_per_km = parameters[:cost_per_km]
-    time_matrix = zeros(Int64, length(jobs), length(sites))
+    time_matrix = zeros(Float64, length(jobs), length(sites))
     cost_matrix = zeros(Float64, length(jobs), length(sites))
 
     for i in 1:length(jobs)
         for j in 1:length(sites)
             distance = get_distance(jobs[i].location, sites[j].location)
-            time_matrix[i, j] = ceil(Int64, distance / velocity)
+            time_matrix[i, j] = distance / velocity
             cost_matrix[i, j] = distance * cost_per_km
         end
     end
@@ -238,6 +237,10 @@ function travel_cost(instance::PMSLPData, job::Job, site::Site)::Float64
     return travel_cost(instance, get_idx(job), get_idx(site))
 end
 
+function travel_cost(instance::PMSLPData, job_id::String, site_id::String)::Float64
+    return travel_cost(instance, get_idx(job_id), get_idx(site_id))
+end
+
 fixed_cost(site::Site)::Int64 = site.fixed_cost
 
 fixed_cost(instance::PMSLPData, site_idx::Int64)::Int64 = fixed_cost(instance.sites[site_idx])
@@ -264,4 +267,33 @@ function latest_start(instance::PMSLPData, job_idx::Int64)::Int64
         earliest_start(instance, job_idx, site_idx)
         for site_idx in 1:nb_sites(instance)
     )
+end
+
+function PMSLPData()
+    filename = "sample"
+    processing_times = [26, 95, 42]
+    due_dates = [100, 128, 127]
+    site_coords = [[38, 2],[6, 80],[68, 99],[41, 26]]
+    job_coords = [[9, 13],[49, 90],[44, 74]]
+    fixed_costs = [50, 30, 70, 40]
+    tardiness_penalty = 0.2
+    cost_per_km = 3
+    speed = 1
+    λ = [1, 1, 1]
+    nb_jobs = length(processing_times)
+    nb_sites = length(fixed_costs)
+
+    jobs = [
+        Job("$(JOB_PREFIX)$(i)", processing_times[i], Location(job_coords[i]...), due_dates[i])
+        for i in 1:nb_jobs
+    ]
+    sites = [
+        Site("$(SITE_PREFIX)$(i)", fixed_costs[i], Location(site_coords[i]...))
+        for i in 1:nb_sites
+    ]
+    parameters = build_parameters(tardiness_penalty=tardiness_penalty, λ=λ, cost_per_km=cost_per_km, velocity=speed)
+    estimator = build_matrices(jobs, sites, parameters)
+    horizon = build_horizon(jobs, estimator)
+
+    return PMSLPData(filename, horizon, 3, jobs, sites, estimator, parameters)
 end
