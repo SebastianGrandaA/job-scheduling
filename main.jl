@@ -51,7 +51,7 @@ function optimize(model_name::String, instance::PMSLPData, solver::SOLVER)::PMSL
     return solve(method, instance, solver)
 end
 
-function execute!(args::Dict)::Nothing
+function execute(args::Dict)::PMSLPSolution
     # Set solver
     verbose = get(args, "verbose", false) == true ? 1 : 0
     solver = optimizer_with_attributes(
@@ -74,10 +74,10 @@ function execute!(args::Dict)::Nothing
     export_solution(joinpath(output_path, "$(filename)_$(model_name)"), instance, solution)
 
     # If args has the key : benchmark and its value is true, then record the model metrics in a csv file
-    run_benchmark = get(args, "benchmark", false)
+    run_benchmark = get(args, "benchmark", true)
     run_benchmark && add_model!(joinpath(output_path, "benchmark.csv"), instance, solution)
 
-    return nothing
+    return solution
 end
 
 function main()::Nothing
@@ -105,7 +105,9 @@ function main()::Nothing
         # verbose = default en true?
     end
 
-    execute!(parse_args(parser))
+    _ = execute(parse_args(parser))
+
+    return nothing
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__

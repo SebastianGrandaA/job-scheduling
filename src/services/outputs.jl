@@ -22,6 +22,7 @@ end
 struct Metrics
     objective_value::Real
     execution_time::Float64
+    status::MOI.TerminationStatusCode
 end
 
 struct Window
@@ -55,6 +56,7 @@ struct PMSLPSolution
 end
 
 method(solution::PMSLPSolution)::String = String(Symbol(solution.method))
+status(solution::PMSLPSolution)::String = string(solution.metrics.status)
 nb_sites(solution::PMSLPSolution)::Int64 = length(solution.open_sites)
 nb_assignments(solution::PMSLPSolution)::Int64 = length(solution.assignments)
 
@@ -177,12 +179,13 @@ function plot_gantt!(path::String, solution::DataFrame)::Nothing
     colors = distinguishable_colors(num_jobs, colorant"lightblue", lchoices=0.5:0.1:0.9)
     
     traces = map(eachrow(solution), 1:num_jobs) do row, idx
-        start_time = row[:start]
-        finish_time = row[:finish]
+        start_time = row[:start_at]
+        finish_time = row[:finish_at]
         duration = finish_time - start_time
-        job_name = row[:job]
-        site_name = string(row[:site])
-    
+        due_date = row[:due_date]
+        job_name = row[:job_idx]
+        site_name = string(row[:site_idx])
+
         trace = bar(
             x=[duration],
             y=[site_name],
@@ -197,7 +200,7 @@ function plot_gantt!(path::String, solution::DataFrame)::Nothing
                 )
             ),
             hoverinfo="text",
-            text=["Job: $job_name<br>Start: $start_time<br>Finish: $finish_time<br>Duration: $duration"]
+            text=["Job: $job_name<br>Start: $start_time<br>Finish: $finish_time<br>Duration: $duration<br>Due date: $due_date"],
         )
         return trace
     end
@@ -221,38 +224,40 @@ end
 # Exporting
 function export_solution(path::String, instance::PMSLPData, solution::PMSLPSolution)::Nothing
     solution_data = DataFrame(
-        job = String[],
-        site = String[],
-        start = Int[],
-        finish = Int[],
-        due_date = Int[]
-    )
-    due_dates = Dict{String, Int64}(
-        job.id => job.due_date
-        for job in instance.jobs
+        job_idx = Int[],
+        site_idx = Int[],
+        start_at = Int[],
+        finish_at = Int[],
+        due_date = Int[],
     )
 
     for assignment in solution.assignments
         row = (
-            assignment.job_id,
-            assignment.site_id,
+            get_idx(assignment.job_id),
+            get_idx(assignment.site_id),
             start_time(assignment),
             finish_time(assignment),
-            due_dates[assignment.job_id]
+            due_date(instance, get_idx(assignment.job_id)),
         )
         push!(solution_data, row)
     end
 
+    sort!(solution_data, :job_idx, rev=false)
+    @info solution_data
+
     plot_gantt!("$(path)_gantt.html", solution_data)
-    write("$(path)_solution.csv", solution_data)
+
+    summary = select(solution_data, [:site_idx, :start_at])
+    push!(summary, ("", "", objective_value(solution)), promote=true)
+    write("$(path)_solution.csv", summary)
 
     return nothing
 end
 
 function add_model!(filename::String, instance::PMSLPData, solution::PMSLPSolution)::Nothing
-    columns = ["instance_name", "model_name", "solution_value", "execution_time"]
+    columns = ["instance_name", "model_name", "solution_value", "execution_time", "status"]
     history = get_file(filename, columns)
-    execution = [name(instance), method(solution), objective_value(solution), execution_time(solution)]
+    execution = [name(instance), method(solution), objective_value(solution), execution_time(solution), status(solution)]
     push!(history, execution, promote=true)
     @info "Solution recorded in benchmark file"
 

@@ -14,7 +14,7 @@ function benchmark!(instances::Vector{String}, models::Vector{String})
                 "benchmark" => true,
                 "verbose" => false,
             )
-            execute!(args)
+            _ = execute(args)
         end
     end
 end

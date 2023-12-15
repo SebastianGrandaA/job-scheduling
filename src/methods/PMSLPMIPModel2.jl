@@ -126,7 +126,7 @@ function PMSLPSolution(
         end
     end
 
-    metrics = Metrics(objective_value(model), execution_time)
+    metrics = Metrics(objective_value(model), execution_time, termination_status(model))
     solution = PMSLPSolution(method, open_sites, assignments, metrics)
     format!(solution)
     validate(solution)
