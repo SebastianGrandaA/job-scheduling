@@ -3,23 +3,26 @@ using StatsBase
 """
 This can be ran in parallel for each instance-model, however it is not recommended to avoid resource competition.
 """
-function benchmark!(instances::Vector{String}, models::Vector{String})
+function benchmark!(instances::Vector{String}, models::Vector{String}; kwargs...)::Nothing
     for instance in instances
         for model in models
+            timeout = get(kwargs, Symbol("$(model)_timeout"), 1 * 60 * 60)
             @info "Benchmarking $(model) on $(instance)"
             args = Dict(
                 "filename" => instance, 
                 "model" => model,
-                "limit" => 1 * 60 * 60,
+                "limit" => timeout,
                 "benchmark" => true,
                 "verbose" => false,
             )
             _ = execute(args)
         end
     end
+
+    return nothing
 end
 
-function benchmark!(models::Vector{String}, sample_size::Int64=1)
+function benchmark!(models::Vector{String}, sample_size::Int64=1; kwargs...)::Nothing
     path = joinpath(pwd(), "inputs", "instances")
     instances = [
         replace(file, ".dat" => "")
@@ -30,5 +33,5 @@ function benchmark!(models::Vector{String}, sample_size::Int64=1)
         @info "Sampling $(length(instances)) instances"
     end
 
-    benchmark!(instances, models)
+    benchmark!(instances, models; kwargs...)
 end

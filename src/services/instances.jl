@@ -15,6 +15,9 @@ struct Job
     due_date::Int64
 end
 
+latitude(job::Job)::Float64 = job.location.latitude
+longitude(job::Job)::Float64 = job.location.longitude
+
 struct Site
     id::String
     fixed_cost::Int64
@@ -35,6 +38,8 @@ struct PMSLPData
     estimator::Estimator
     parameters::Dict{Symbol, Any}
 end
+
+job_ids(instance::PMSLPData)::Vector{String} = unique([job.id for job in instance.jobs])
 
 name(instance::PMSLPData)::String = instance.name
 
@@ -68,6 +73,8 @@ function PMSLPData(filename::String; kwargs...)
 
     return PMSLPData(filename, horizon, nb_machines, jobs, sites, estimator, parameters)
 end
+
+cost_per_km(instance::PMSLPData)::Float64 = instance.parameters[:cost_per_km]
 
 """
     build_horizon(instance::PMSLPData)
@@ -297,3 +304,5 @@ function PMSLPData()
 
     return PMSLPData(filename, horizon, 3, jobs, sites, estimator, parameters)
 end
+
+tardiness_penalty(instance::PMSLPData)::Float64 = instance.parameters[:tardiness_penalty]

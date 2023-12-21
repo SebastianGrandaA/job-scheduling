@@ -9,7 +9,7 @@ function solve(
     jobs = 1:nb_jobs(instance)
     periods = instance.horizon
     λ = instance.parameters[:λ]
-    β = instance.parameters[:tardiness_penalty]
+    β = tardiness_penalty(instance)
 
     @variable(model, is_allocated[sites], Bin) # `y` : machine installation in each site k
     @variable(model, starts_at[periods, jobs, sites], Bin) # `x` : job j starts at time t in site k
@@ -119,9 +119,9 @@ function PMSLPSolution(
     end
 
     metrics = Metrics(objective_value(model), execution_time, termination_status(model))
-    solution = PMSLPSolution(method, open_sites, assignments, metrics)
+    solution = PMSLPSolution(method, open_sites, assignments, metrics, [])
     format!(solution)
-    validate(solution)
+    validate(instance, solution)
 
     return solution
 end

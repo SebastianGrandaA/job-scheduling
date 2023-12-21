@@ -2,9 +2,14 @@ using Pkg
 Pkg.activate(@__DIR__)
 Pkg.instantiate()
 
-using JuMP # : Model, @variable, @objective, @constraint, optimize!, value, objective_value, optimizer_with_attributes, termination_status
-using Gurobi #: Optimizer
-using ArgParse #: ArgParseSettings, @add_arg_table!, parse_args
+using JuMP
+using Gurobi
+using ArgParse
+using Clustering
+using Hungarian
+using Distributed
+using Random
+using Dates
 
 abstract type Method end
 struct BaseModel <: Method end
@@ -16,6 +21,8 @@ struct PMSLPBenders <: Method end
 const SOLVER = MOI.OptimizerWithAttributes
 const JOB_PREFIX = "JOB-"
 const SITE_PREFIX = "SITE-"
+const SWAP_PREFIX = "swap_"
+const REASSIGN_PREFIX = "reassign_"
 
 include("src/services/instances.jl")
 include("src/services/outputs.jl")
@@ -37,16 +44,16 @@ function optimize(model_name::String, instance::PMSLPData, solver::SOLVER)::PMSL
         model = Symbol("PMSLPMIPModel$(model_number.match)")
         method = eval(model)()
     elseif occursin(uppercase(model_name), uppercase("PMSLPHeuristic"))
-        method = eval(Symbol("Heuristic"))()
+        method = eval(Symbol("PMSLPHeuristic"))()
     else
         try
             method = eval(Symbol(model_name))()
         catch e
-            @error "Invalid model name: $model_name. Not registered. Error: $e"
+            error("Invalid model name: $model_name. Not registered. Error: $e")
         end
     end
 
-    @info "Solving $(instance.name) with $(method) | Jobs: $(nb_jobs(instance)) | Sites: $(nb_jobs(instance))"
+    @info "Solving $(instance.name) with $(method) | Jobs: $(nb_jobs(instance)) | Sites: $(nb_jobs(instance)) | Machines: $(nb_machines(instance))"
 
     return solve(method, instance, solver)
 end
@@ -71,7 +78,7 @@ function execute(args::Dict)::PMSLPSolution
 
     # Export solution
     output_path = joinpath(dirname(@__FILE__), "outputs")
-    export_solution(joinpath(output_path, "$(filename)_$(model_name)"), instance, solution)
+    export_solution(model_name, joinpath(output_path, "$(filename)_$(model_name)"), instance, solution)
 
     # If args has the key : benchmark and its value is true, then record the model metrics in a csv file
     run_benchmark = get(args, "benchmark", true)
