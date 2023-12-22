@@ -3,7 +3,6 @@
 
 The first step in the construction heuristic is to clusterize the jobs into `nb_machines` partitions based on their geographical position.
 This is achieved by using the k-means algorithm, because the number of clusters is known in advance.
-... Add formulas ...
 """
 function clusterize(jobs::Vector{Job}, nb_machines::Int64)::Vector{Cluster}
     points = reduce(hcat, [[latitude(job), longitude(job)] for job in jobs])
@@ -65,10 +64,18 @@ function schedule(solver::SOLVER, instance::PMSLPData, pattern::Pattern)::Union{
     for (cluster, site, _) in pattern.matches
         task = @async begin
             try
-                scheduling = heuristic_schedule(instance, site, cluster)
-                is_optimal(scheduling) && return scheduling
+                heuristic_scheduling = heuristic_schedule(instance, site, cluster)
+                is_optimal(heuristic_scheduling) && return heuristic_scheduling
 
-                return optimal_schedule(solver, instance, site, cluster)
+                exact_schedule = optimal_schedule(solver, instance, site, cluster)
+                
+                if sum(tardiness.(heuristic_scheduling)) < sum(tardiness.(exact_schedule))
+                    @warn "Heuristic schedule is better than exact schedule"
+
+                    return heuristic_scheduling
+                end
+
+                return exact_schedule
             catch err
                 error("Error while scheduling $(err)")
                 return nothing
@@ -176,8 +183,11 @@ function heuristic_schedule(instance::PMSLPData, site::Site, cluster::Cluster)::
         is_first = j == 1
         starts_at = is_first ? earliest_start(instance, job, site) : max(finish_time(assignments[j - 1]), earliest_start(instance, job, site))
         finish_at = starts_at + processing_time(job)
-        tardiness = max(0, finish_at - due_date(job))
-        assignment = Assignment(job.id, site.id, Window(starts_at, finish_at), tardiness)
+        machine_usage = Window(starts_at, finish_at)
+
+        arrives_at = finish_at + travel_time(instance, job, site)
+        tardiness = max(0, arrives_at - due_date(job))
+        assignment = Assignment(job.id, site.id, machine_usage, tardiness)
         push!(assignments, assignment)
     end
 
@@ -368,7 +378,9 @@ First, let a Cluster be a subset of jobs that will be planified together, and a 
 
 The local search algorithm iteratevely applies a set of operators that modifies an initial pattern until a stopping criteria is met.
 These operators are selected based on the nature of the problem and the assumptions made. Since the quantity of machines is fixed, we can only modify the job-cluster and the cluster-site assignments, but not reduce or increase the number of clusters (i.e. split a cluster in two, merge two clusters, etc.).
-Moreover, since we seek to solve the scheduling problem to optimality, we do not consider intra-cluster movements (i.e. shuffling jobs within a cluster). These operators, combined, allow us to obtain any solution in the search space from any other solution, therefore the operators are conex.
+Moreover, since we seek to solve the scheduling problem to optimality, we do not consider intra-cluster movements (i.e. shuffling jobs within a cluster).
+These operators, combined, allow us to obtain any solution in the search space from any other solution, therefore the operators are conex.
+
 At each iteration, a randomly-selected operator is applied and the first-accepted resulting solution is considered the best solution (first-fit).
 The acceptance criteria is based on the simulated annealing strategy, which allows us to accept solutions that do not improve the objective value but might lead to a better solution.
 To prioritize the modifications of unattractive clusters in a pattern, we sort the Cluster-Site assignments by decreasing total tardiness and we select the first ones as the preferred for the operators (i.e. most inefficient clusters).
@@ -423,6 +435,12 @@ function metaheuristic(solver::SOLVER, instance::PMSLPData)::Tuple{SearchSolutio
     return improved_solution, history
 end
 
+
+"""
+    solve(method, instance, solver)
+
+Entry point of the heuristic.
+"""
 function solve(
     method::PMSLPHeuristic,
     instance::PMSLPData,

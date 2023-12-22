@@ -1,3 +1,8 @@
+"""
+    solve(::PMSLPMIPModel1, instance, solver)
+
+Solves the problem using the PMSLPMIPModel1 model.
+"""
 function solve(
     method::PMSLPMIPModel1,
     instance::PMSLPData,

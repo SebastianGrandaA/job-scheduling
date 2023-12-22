@@ -103,7 +103,6 @@ function main()::Nothing
             #     "MP1", "PMSLPMIPModel1",
             #     "MP2", "PMSLPMIPModel2",
             #     "H", "Heuristic",
-            #     "Benders",
             # ]
         "--limit"
             help="Time limit"

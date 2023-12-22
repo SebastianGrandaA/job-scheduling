@@ -1,3 +1,9 @@
+
+"""
+    solve(::BaseModel, instance, solver)
+
+Solves the problem using the BaseModel and returns the solution taken from the paper.
+"""
 function solve(
     method::BaseModel,
     instance::PMSLPData,

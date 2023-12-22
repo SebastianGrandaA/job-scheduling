@@ -234,7 +234,6 @@ function has_overlapping(solution::PMSLPSolution)::Bool
     return false
 end
 
-
 # Plotting
 function plot_gantt!(model_name::String, path::String, solution::DataFrame)::Nothing
     num_jobs = size(solution, 1)
